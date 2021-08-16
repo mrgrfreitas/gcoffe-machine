@@ -1,0 +1,15 @@
+{
+    "name": "gcoffee/framework",
+    "autoload": {
+        "psr-4": {
+            "Gcoffee\\Framework\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Geraldofreitas",
+            "email": "geraldofreitas@users.noreply.github.com"
+        }
+    ],
+    "require": {}
+}
