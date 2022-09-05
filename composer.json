@@ -1,0 +1,16 @@
+{
+    "name": "gcoffe/machine",
+    "description": "web application framework",
+    "autoload": {
+        "psr-4": {
+            "Gcoffe\\Machine\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Geraldo Freitas",
+            "email": "geraldodrfreitas@outlook.com"
+        }
+    ],
+    "require": {}
+}
