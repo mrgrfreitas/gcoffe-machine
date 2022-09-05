@@ -17,9 +17,25 @@ use PDOStatement;
  */
 class Create extends Conn
 {
+    /**
+     * @var string
+     */
     private string $Table;
+
+    /**
+     * @var array
+     */
     private array $Data;
+
+    /**
+     * @var
+     */
     private $Result;
+
+    /**
+     * @var
+     */
+    private $Error;
 
     /** @var PDOStatement */
     private $Create;
@@ -58,6 +74,14 @@ class Create extends Conn
     }
 
     /**
+     * <b>getError:</b> Returns the error.
+     * @return mixed
+     */
+    public function getError() {
+        return $this->Error;
+    }
+
+    /**
      * ****************************************
      * *********** PRIVATE METHODS ************
      * ****************************************
@@ -85,8 +109,10 @@ class Create extends Conn
             $this->Result = $this->Conn->lastInsertId();
 
         } catch (PDOException $e) {
-            $this->Result = null;
-            logger($e, gc_DANGER, ERROR_ON_CREATE);
+            $this->Result = false;
+            $this->Error = $e->getMessage();
+            logger($e);
+            //logger($e, gc_DANGER, ERROR_ON_CREATE);
         }
     }
 }

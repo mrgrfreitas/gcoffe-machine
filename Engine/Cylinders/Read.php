@@ -18,9 +18,25 @@ use PDOStatement;
  */
 class Read extends Conn {
 
+    /**
+     * @var
+     */
     private $Select;
+
+    /**
+     * @var
+     */
     private $Places;
+
+    /**
+     * @var
+     */
     private $Result;
+
+    /**
+     * @var
+     */
+    private $Error;
 
     /**
      * @var PDOStatement
@@ -55,6 +71,14 @@ class Read extends Conn {
      */
     public function getResult() {
         return $this->Result;
+    }
+
+    /**
+     * <b>getError:</b> Returns the error.
+     * @return mixed
+     */
+    public function getError() {
+        return $this->Error;
     }
 
     /**
@@ -146,8 +170,9 @@ class Read extends Conn {
             }
 
         } catch (PDOException $e) {
-            $this->Result = null;
-            logger($e, gc_DANGER, ERROR_ON_SELECT);
+            $this->Result = false;
+            $this->Error = $e->getMessage() . ' [ please consult the log file error or the admin system to see the complete error...]';
+            logger($e);
         }
     }
 

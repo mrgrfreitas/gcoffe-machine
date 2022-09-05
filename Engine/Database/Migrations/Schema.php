@@ -43,10 +43,22 @@ class Schema extends Conn
         return $migrations->getResult();
     }
 
-    public static function insert($table, $columns, $values)
+    public static function query($table, $columns, $values)
     {
         $query = new Create;
         return $query->queryInsert($table, $columns, $values);
+    }
+
+    public static function insert($table, $data)
+    {
+        $query = new Create;
+        return $query->insert($table, $data);
+    }
+
+    public static function truncate($table)
+    {
+        self::$Table = $table;
+        (new static)->truncateTable();
     }
 
     /**
@@ -68,6 +80,18 @@ class Schema extends Conn
         }
     }
 
+    private function truncateTable() {
+        $this->Conn = parent::getConn();
+        $sql = "TRUNCATE TABLE ".self::$Table;
+        try {
+            $this->Conn->exec($sql);
+            return true;
+
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
     private function DropTable() {
         $this->Conn = parent::getConn();
         $sql = "DROP TABLE ".self::$Table;
@@ -79,5 +103,6 @@ class Schema extends Conn
             return false;
         }
     }
+
     
 }

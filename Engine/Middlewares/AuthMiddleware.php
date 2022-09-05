@@ -4,7 +4,8 @@
 namespace app\Machine\Engine\Middlewares;
 
 
-use app\Machine\App;
+use app\Machine\Application;
+use app\Machine\Engine\Support\Session;
 
 class AuthMiddleware extends BaseMiddleware
 {
@@ -22,9 +23,12 @@ class AuthMiddleware extends BaseMiddleware
     public function execute()
     {
         if (guest()){
-            if (empty($this->actions) || in_array(App::$app->controller->action, $this->actions)){
-                redirect('login');
+            if (empty($this->actions) || in_array(Application::$app->controller->action, $this->actions)){
+                redirectTo('login');
             }
+        }else{
+            Session::$session->set('loginTimeSession', time());
         }
+
     }
 }

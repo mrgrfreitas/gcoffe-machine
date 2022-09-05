@@ -4,8 +4,8 @@
 namespace app\Machine\Engine;
 
 
-use app\Machine\Engine\Helpers\Checker;
-use app\Machine\Engine\Helpers\Upload;
+use app\Machine\Engine\Support\Checker;
+use app\Machine\Engine\Support\Upload;
 
 class UploadFile
 {
@@ -16,17 +16,18 @@ class UploadFile
 
     public static function storage($path, $file, $size, $name = null)
     {
-        if(Checker::mimeTypeForImage($file['type'])){
+
+        if( Checker::mimeTypeForImage($file['type'])  !== false){
             return (new static())->newImageUpload($path, $file, $size, $name);
 
-        }elseif (Checker::mimeTypeForMedia($file['type'])){
+        }elseif ( Checker::mimeTypeForMedia($file['type']) !== false){
             return (new static())->newImageMedia($path, $file, $name);
 
-        }elseif (Checker::mimeTypeForArchives($file['type'])){
+        }elseif ( Checker::mimeTypeForArchives($file['type']) !== false){
             return (new static())->newImageArchive($path, $file, $name);
 
         }else{
-            echo ('File not support..');exit();
+            echo ('File not support..');
         }
 
     }
@@ -38,13 +39,16 @@ class UploadFile
     }
 
     /**
-     * @param $file
      * @param $path
+     * @param $file
+     * @param $size
+     * @param $name
+     * @return STRING
      */
     public function newImageUpload($path, $file, $size, $name)
     {
         if (empty($size)){
-            $this->setSize($file);
+            $this->setSize($file); 
         }else{
             $this->width = $size['w'];
             $this->height = $size['h'];

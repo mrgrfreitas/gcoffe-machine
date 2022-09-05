@@ -6,6 +6,9 @@ namespace app\Machine\Engine\Valve\Traits;
 
 use app\Machine\Request;
 
+/**
+ *
+ */
 trait Fillable
 {
     protected array $fillable;
@@ -16,7 +19,7 @@ trait Fillable
     public function fillable()
     {
 
-        $request = new Request;
+        $request = new Request();
         if (isset($this->fillable)){
 
             //returns an array in flip order, i.e. keys from array become values and values from array become keys.

@@ -2,7 +2,6 @@
 namespace app\Machine;
 
 use app\Controllers\Controller;
-use app\Machine\Exception\ForbiddenException;
 use app\Machine\Exception\NotFoundException;
 
 class Router
@@ -34,6 +33,56 @@ class Router
         $this->routes['post'][$path] = $callback;
     }
 
+    public function getCallback()
+    {
+        $path   = $this->request->getPath();
+        $method = $this->request->method();
+
+        // Trim slashes
+        $path = trim($path, '/');
+
+        // Get all routes for current request method
+        $routes = $this->routes[$method] ?? [];
+
+        // Start iterating registered routes
+        foreach ($routes as $route => $callback){
+
+            // Trim slashes
+            $route = trim($route, '/');
+            $routesNames = [];
+
+            if (!$route){
+                continue;
+            }
+
+
+            // Find all route names from route and save in $routeNames
+            if (preg_match_all('/\{(\w+)(:[^}]+)?}/', $route, $matches)){
+                $routesNames = $matches[1];
+            }
+
+            // Convert route name into Regex Pattern
+            $routeRegex = "@^" . preg_replace_callback('/\{(\w+)(:[^}]+)?}/', fn($m) => isset($m[2]) ? "({$m[2]})" : '(\w+)' , $route) . "$@";
+
+            if (preg_match_all($routeRegex, $path, $valueMatches)){
+                $values = [];
+
+                for ($i = 1; $i < count($valueMatches); $i++){
+                    $values[] = $valueMatches[$i][0];
+                }
+
+                $routeParams = array_combine($routesNames, $values);
+
+                $this->request->setRouteParams($routeParams);
+
+                return $callback;
+            }
+
+        }
+
+        return  false;
+    }
+
     /**
      * @throws NotFoundException
      */
@@ -44,8 +93,12 @@ class Router
         $callback = $this->routes[$method][$path] ?? false;
 
         if($callback === false){
-            throw new NotFoundException();
-            //return view('errors/404');
+            $callback = $this->getCallback();
+
+            if ($callback === false){
+                throw new NotFoundException();
+                //return view('errors/404');
+            }
         }
 
 
@@ -57,7 +110,7 @@ class Router
             /** @var Controller $controller */
 
             $controller = new $callback[0]();
-            App::$app->controller = $controller;
+            Application::$app->controller = $controller;
             $controller->action = $callback[1];
             $callback[0] = $controller;
 
@@ -66,7 +119,6 @@ class Router
             }
 
         }
-
 
         return call_user_func($callback, $this->request);
 

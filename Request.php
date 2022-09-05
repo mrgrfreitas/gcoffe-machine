@@ -3,7 +3,7 @@
 
 namespace app\Machine;
 
-use app\Machine\Engine\Helpers\File;
+use app\Machine\Engine\Support\FileAnalyzer;
 use app\Machine\Engine\UploadFile;
 
 /**
@@ -18,11 +18,13 @@ class Request
 //    protected $File;
 //    protected array $file_size = [];
     protected array $get = [];
+    private array $routeParams = [];
+    private array $fieldsData = [];
 
 
     public function __construct()
     {
-        // Check if have the GET DATA... we can use this when we work with POST and GET DATA in the same PAGE...
+        // Check if exist the GET DATA... we can use this when we work with POST and GET DATA in the same PAGE...
         $this->get = $this->checkForGetData();
     }
 
@@ -38,6 +40,33 @@ class Request
         }
         return substr($path, 0, $position);
 
+    }
+
+    /**
+     * @param $params
+     * @return $this
+     */
+    public function setRouteParams($params): static
+    {
+        $this->routeParams = $params;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getRouteParams(): array
+    {
+        return $this->routeParams;
+    }
+
+    /**
+     * @param $key
+     * @return mixed
+     */
+    public function getParam($key): mixed
+    {
+        return $this->getRouteParams()[$key];
     }
 
     /*
@@ -57,9 +86,43 @@ class Request
         return $this->method() == 'post';
     }
 
+    /**
+     * Determine if the request is the result of an AJAX call.
+     *
+     * @return bool
+     */
+    public function ajax(): bool
+    {
+        return $this->isXmlHttpRequest();
+    }
+
     public function getData()
     {
         return $this->get;
+    }
+
+    public function input($key)
+    {
+        return $this->getData()[$key];
+    }
+
+
+    /**
+     * @return mixed|null
+     */
+    public function getId()
+    {
+        $id = $this->getData();
+        return array_shift($id);
+    }
+
+    /**
+     * @return mixed|null
+     */
+    public function getSlug()
+    {
+        $slug = $this->getData();
+        return array_shift($slug);
     }
 
     /**
@@ -67,132 +130,83 @@ class Request
      */
     public function data(array $fields = null)
     {
-        $body = [];
 
+        /**
+         * Validate if is get method
+         */
         if ($this->method() === "get"){
 
             if (!empty($fields)){
                 foreach ($fields as $key => $value){
 
-                    // WHAT THIS WILL DO: it is have look to a SUPER_GLOBAL GET using the constant INPUT_GET,
-                    // it is have look in following $key, take the value remove in the value some character and put it in body
-                    $body[$key] = $value;
+                    // WHAT THIS WILL DO: it is look to a SUPER_GLOBAL GET using the constant INPUT_GET,
+                    // it is had looked in following $key, take the value remove in the value some character and put it in body
+                    $this->fieldsData[$key] = $value;
                 }
             }
 
             foreach ($_GET as $key => $value){
 
-                // WHAT THIS WILL DO: it is have look to a SUPER_GLOBAL GET using the constant INPUT_GET,
-                // it is have look in following $key, take the value remove in the value some character and put it in body
-                $body[$key] = filter_input(INPUT_GET, $key, FILTER_SANITIZE_SPECIAL_CHARS);
+                // WHAT THIS WILL DO: it is look to a SUPER_GLOBAL GET using the constant INPUT_GET,
+                // it is had looked in following $key, take the value remove in the value some character and put it in body
+                $this->fieldsData[$key] = filter_input(INPUT_GET, $key, FILTER_DEFAULT);
             }
         }
 
+        /**
+         * validate if is post method
+         */
         if ($this->method() === "post"){
-
-            if (!empty($fields)){
-                foreach ($fields as $key => $value){
-
-                    // WHAT THIS WILL DO: it is have look to a SUPER_GLOBAL GET using the constant INPUT_GET,
-                    // it is have look in following $key, take the value remove in the value some character and put it in body
-                    $body[$key] = $value;
-                }
-            }
-
-            foreach ($_POST as $key => $value){
-
-                if(is_array($value)){
-                    $body[$key] = implode(',', $value);
-                }else{
-                    // WHAT THIS WILL DO: it is have look to a SUPER_GLOBAL POST using the constant INPUT_POST,
-                    // it is have look in following $key, take the value remove in the value some character and put it in body
-                    $body[$key] = filter_input(INPUT_POST, $key, FILTER_SANITIZE_SPECIAL_CHARS);
-                }
-
-            }
-
-            foreach ($_FILES as $key => $value){
-
-                if($value['tmp_name'] === '' ){
-                    unset($_FILES[$key]);
-                }
-
-                $body['filesystem'] = $_FILES;
-            }
+            $this->checkPostMethod($fields);
         }
-        return $body;
+
+        /**
+         * validate if is ajax
+         */
+        if ($this->ajax()){
+            $this->checkPostMethod($fields);
+        }
+
+        return $this->fieldsData;
     }
 
     /**
-     * @param array|string $key
-     * @return $this
+     * @param $fields
+     * @return void
      */
-//    public function file($file = '')
-//    {
-//
-//        //$file = File::separateFiles($key);
-//
-//        if (is_array($file)){
-//
-//            $this->File = $file;
-//        } elseif ($file == ''){
-//
-//            foreach ($_FILES as $file => $value){
-//                $this->File = $value;
-//            }
-//
-//        }else{
-//
-//            $this->File = $_FILES[$file];
-//        }
-//        return $this;
-//    }
+    private function checkPostMethod($fields): void
+    {
+        if (!empty($fields)){
+            foreach ($fields as $key => $value){
 
-//    public function size($width = null, $height = null)
-//    {
-//        $this->file_size = [
-//          'w' => !is_null($width) ? $width : getimagesize($this->file()->File['tmp_name'])[0],
-//          'h' => !is_null($height) ? $height : getimagesize($this->file()->File['tmp_name'])[1]
-//        ];
-//
-//        return $this;
-//    }
+                // WHAT THIS WILL DO: it is look to a SUPER_GLOBAL GET using the constant INPUT_GET,
+                // it is had looked in following $key, take the value remove in the value some character and put it in body
+                $this->fieldsData[$key] = $value;
+            }
+        }
 
-    /**
-     * @param $w
-     * @param $h
-     * @param string $path
-     * @return STRING|void
-     */
-//    public function thumbnail($w, $h, $path = '')
-//    {
-//        if (!is_null($this->file()->File)){
-//
-//            $this->file_size = [
-//                'w' => $w,
-//                'h' => $h
-//            ];
-//
-//            return UploadFile::storage($path, $this->File, $this->file_size);
-//
-//        }else{
-//            GWError("File can't be null, please select a file", GW_DANGER);
-//        }
-//    }
+        foreach ($_POST as $key => $value){
 
-    /**
-     * @param string $path
-     * @return STRING|void
-     */
-//    public function store($path = '')
-//    {
-//        if (!is_null($this->file()->File)){
-//            return UploadFile::storage($path, $this->file()->File, $this->size()->file_size);
-//        }else{
-//            GWError("File can't be null, please select a file", GW_DANGER);
-//        }
-//
-//    }
+            if(is_array($value)){
+                $this->fieldsData[$key] = implode(',', $value);
+            }else{
+                // WHAT THIS WILL DO: it is look to a SUPER_GLOBAL POST using the constant INPUT_POST,
+                // it is had looked in following $key, take the value remove in the value some character and put it in body
+                $this->fieldsData[$key] = filter_input(INPUT_POST, $key, FILTER_DEFAULT);
+            }
+
+        }
+
+        foreach ($_FILES as $key => $value){
+
+            if($value['tmp_name'] === '' ){
+                unset($_FILES[$key]);
+            }
+
+            $this->fieldsData['filesystem'] = $_FILES;
+        }
+
+    }
 
     /**
      * @return array
@@ -203,6 +217,18 @@ class Request
             return $_GET;
         }else{
             return [];
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    private function isXmlHttpRequest(): bool
+    {
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' ) {
+            return true;
+        }else{
+            return false;
         }
     }
 

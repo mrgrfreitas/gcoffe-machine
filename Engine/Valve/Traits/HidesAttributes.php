@@ -4,7 +4,7 @@
 namespace app\Machine\Engine\Valve\Traits;
 
 
-use app\Machine\Engine\Helpers\DateFormatter;
+use app\Machine\Engine\Support\DateFormatter;
 use app\Machine\Request;
 use Illuminate\Support\Str;
 
@@ -16,18 +16,21 @@ trait HidesAttributes
     protected array $created;
     protected array $updated;
     protected array $published;
+    protected array $time;
 
     public function hidesAttr()
     {
         $this->data = [];
         $request = new Request;
+
+        /** SLUG */
         if (isset($this->slug)){
 
             if (array_key_exists($this->slug[1], $request->data())){
                 $toSlug = $request->data()[$this->slug[1]];
 
                 $slug = Str::slug($toSlug);
-                $checkSlug = $this->uniqueChecker($this->slug[1], $toSlug);
+                $checkSlug = $this->checkUniqueValue($this->slug[1], $toSlug);
 
                 if ($checkSlug){
                     if ($this->getRowCount() == 0){
@@ -42,6 +45,7 @@ trait HidesAttributes
             }
         }
 
+        /** TIMESTAMPS [ created - updated - deleted ] */
         if (isset($this->timestamps)){
             if (!empty($this->timestamps)){
                 foreach ($this->timestamps as $key => $value){
@@ -55,6 +59,7 @@ trait HidesAttributes
             }
         }
 
+        /** TIMESTAMP [ created - updated ] */
         if (isset($this->timestamp)){
             if (!empty($this->timestamp)){
                 foreach ($this->timestamp as $key => $value){
@@ -67,6 +72,7 @@ trait HidesAttributes
             }
         }
 
+        /** CREATED */
         if (isset($this->created)){
             if (!empty($this->created)){
                 foreach ($this->created as $key => $value){
@@ -78,6 +84,7 @@ trait HidesAttributes
             }
         }
 
+        /** UPDATED */
         if (isset($this->updated)){
             if (!empty($this->updated)){
                 foreach ($this->updated as $key => $value){
@@ -89,6 +96,7 @@ trait HidesAttributes
             }
         }
 
+        /** PUBLISHED */
         if (isset($this->published)){
             if (!empty($this->published)){
                 foreach ($this->published as $key => $value){
@@ -97,6 +105,18 @@ trait HidesAttributes
 
             }else{
                 $this->data['published_at'] =  DateFormatter::timestamp();
+            }
+        }
+
+        /** TIME */
+        if (isset($this->time)){
+            if (!empty($this->time)){
+                foreach ($this->time as $key => $value){
+                    $this->data[$value] =  time();
+                }
+
+            }else{
+                $this->data['time_stamp'] =  time();
             }
         }
 

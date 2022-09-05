@@ -3,7 +3,7 @@
 
 namespace app\Machine\Engine\Valve;
 
-use Illuminate\Support\Str;
+use app\Machine\Engine\Pagination\Paginator;
 use Illuminate\Support\Traits\ForwardsCalls;
 use app\Machine\Engine\Cylinders\Read;
 
@@ -29,7 +29,7 @@ class Builder
      *
      * @var Model
      */
-    protected $model;
+    protected Model $model;
 
     /**
      * The table associated with the model.
@@ -41,11 +41,19 @@ class Builder
     /** @var string */
     protected string $statement;
 
+    /** @var string */
+    protected string $counter;
+
     /** @var  */
     protected $relationship;
 
     /** @var  */
     protected $conditions;
+
+    /**
+     * @var array
+     */
+    public array $whereClause;
 
     /** @var  */
     protected $bindParams;
@@ -57,25 +65,36 @@ class Builder
      */
     public $orders;
 
+    /**
+     * The maximum number of records to return.
+     *
+     * @var
+     */
+    public $limit;
+
+    /**
+     * The number of records to skip.
+     *
+     * @var
+     */
+    public $offset;
+
     /** @var  */
-    protected $limit;
+    protected $group;
 
     /**
      * All of the available clause operators.
      *
      * @var array
      */
-    public $operators = [
+    public array $operators = [
         '=', '<', '>', '<=', '>=', '<>', '!=', '<=>',
-        'like', 'like binary', 'not like', 'ilike',
+        'like', 'LIKE', 'like binary', 'not like', 'ilike',
         '&', '|', '^', '<<', '>>',
         'rlike', 'not rlike', 'regexp', 'not regexp',
-        '~', '~*', '!~', '!~*', 'similar to',
+        '~', '~*', '!~', '!~*', 'similar to', 'AND', 'and', 'OR', 'or', 'NOT', 'not',
         'not similar to', 'not ilike', '~~*', '!~~*',
     ];
-
-    public array $Result;
-    public int $RowCount;
 
 
     public function __construct(Model $model)
@@ -95,6 +114,10 @@ class Builder
         return $this->where([[$this->model->getQualifiedKeyName(), '=', $id]]);
     }
 
+    /**
+     * @param $column
+     * @return string
+     */
     public function qualifiedKeyName($column)
     {
         return $this->model->qualifyColumn($column);
@@ -107,8 +130,9 @@ class Builder
      * @param string $boolean
      * @return Builder
      */
-    public function where($column, $operator = null, $value = null, string $boolean = 'AND')
+    public function where($column, string $boolean = 'AND', $operator = null, $value = null)
     {
+
         if(is_string($column)){
             $this->conditions = "WHERE $column";
         }else{
@@ -118,28 +142,93 @@ class Builder
             $conditions = '';
             $param = '';
 
-            $checkOperator = $this->arraySearch($data[0][1], $this->operators);
+            $checkOperator  = $this->arraySearch($data[0][1], $this->operators);
+            $checkBoolean   = $this->arraySearch($boolean, $this->operators);
+
+            if ($checkBoolean){$condBoolean = $boolean;}
 
             if ($checkOperator) {
 
                 while ($i < $count){
 
                     $bind = 'param_'.$i;
-                    $conditions .= $data[$i][0]. ' ' . $data[$i][1]. ' :'. $bind . " $boolean ";
-                    $param .= $bind. '=' . $data[$i][2]. '&';
+                    $conditions .= $data[$i][0]. ' ' . $data[$i][1]. ' :'. $bind . " $condBoolean ";
+                    if ($data[$i][1] === 'like' || $data[$i][1] === 'LIKE') {
+                        $keyToSearch = '%' . $data[$i][2] . '%';
+                        $param .= $bind. '=' . $keyToSearch . '&';
+                    }else{
+                        $param .= $bind. '=' . $data[$i][2]. '&';
+                    }
                     $i++;
                 }
-                $conditions = substr($conditions, 0, -5);
+
+                if (strlen($condBoolean) == 2){
+                    $conditions = substr($conditions, 0, -4);
+                }else{
+                    $conditions = substr($conditions, 0, -5);
+                }
+
                 $this->conditions = "WHERE $conditions";
                 $this->bindParams = substr($param, 0, -1);
 
             } else {
+
                 $value = $operator;
                 $this->conditions .= "WHERE $column = :column";
                 $this->bindParams = "column={$value}";
             }
         }
 
+        $this->whereClause = [$this->conditions, $this->bindParams];
+        return $this;
+    }
+
+
+    /**
+     * Paginate the given query.
+     *
+     * @param null $perPage
+     * @return $this
+     */
+    public function paginate($perPage = null)
+    {
+
+        $page = filter_input(INPUT_GET, VAR_NAME ?? '', FILTER_VALIDATE_INT);
+
+        $perPage = $perPage ?: $this->model->getPerPage();
+
+        $Pager = new Paginator();
+        $Pager->exePager($page, $perPage);
+        $Pager->exePaginator($this->table);
+
+        $this->limit($Pager->getLimit());
+        $this->offset($Pager->getOffset());
+
+        return $this->get();
+    }
+
+    public function simplePaginate($perPage = null)
+    {
+        $perPage = $perPage ?: $this->model->getPerPage();
+
+        $Pager = new Paginator(null, PREVIOUS_LINK, NEXT_LINK);
+        $Pager->simplePager($perPage);
+        $Pager->simplePaginator($this->table);
+
+        $this->limit($Pager->getLimit());
+        $this->offset($Pager->getOffset());
+
+        return $this->get();
+    }
+
+    /**
+     * @param $counter
+     * @param string $column
+     * @return $this
+     */
+    public function count($counter, string $column = '*'): Builder
+    {
+        $this->counter = "$column, COUNT($counter) as counter";
         return $this;
     }
 
@@ -153,7 +242,7 @@ class Builder
         if (is_array($id)) {
             return $this->findMany($id, $columns);
         }
-        return $this->whereKey($id)->get();
+        return $this->whereKey($id)->get()[0];
     }
 
     /**
@@ -199,33 +288,58 @@ class Builder
      */
     public function get($columns = ['*'])
     {
-        $this->statement = implode(', ', $columns);
+        if (!empty($this->counter)){
+            $this->statement = $this->counter;
+        }else{
+            $this->statement = implode(', ', $columns);
+        }
+
         $this->statement = "SELECT $this->statement FROM $this->table ";
         $this->query = (
 
             $this->statement.
             $this->relationship.
             $this->conditions.
+            $this->group.
             $this->orders.
-            $this->limit
+            $this->limit.
+            $this->offset
         );
-        
+
         $select = new Read();
         $select->query($this->query, $this->bindParams);
 
-        $this->RowCount = $select->getRowCount();
-        $this->Result = $select->getResult();
-        return $this;
+        if (!$select->getResult()){
+            if (!empty($select->getError())){
+                //echo view('errors/');
+                echo $select->getError();
+                exit();
+            }
+        }
+
+        return $select->getResult();
     }
 
 
     /**
+     * @return int
+     */
+    public function getRowCount(): int
+    {
+        return count($this->get());
+    }
+
+
+    /**
+     * Return the order of query. e.g. ORDER BY COLUMN ASC OR DESC
+     *
      * @param $column
      * @param string $direction
      * @return $this
      */
-    public function orderBy($column, $direction = 'asc'): Builder
+    public function orderBy($column, string $direction = 'asc'): Builder
     {
+
         $direction = strtolower($direction);
 
         if (! in_array($direction, ['asc', 'desc'], true)) {
@@ -271,12 +385,36 @@ class Builder
     }
 
     /**
+     * Set the "limit" value of the query.
+     *
      * @param $value
      * @return $this
      */
     public function limit($value): Builder
     {
         $this->limit = " LIMIT $value";
+        return $this;
+    }
+
+    /**
+     * Set the "offset" value of the query.
+     *
+     * @param $value
+     * @return $this
+     */
+    public function offset($value): Builder
+    {
+        $this->offset = " OFFSET $value";
+        return $this;
+    }
+
+    /**
+     * @param $column
+     * @return $this
+     */
+    public function groupBy($column): Builder
+    {
+        $this->group = " GROUP BY $column";
         return $this;
     }
 
@@ -299,6 +437,11 @@ class Builder
         }
 
         return $relationship;
+    }
+
+    public function select($field)
+    {
+        return "SELECT $field FROM $this->table";
     }
 
     /**

@@ -58,6 +58,7 @@ class Update extends Conn {
         return $this->Result;
     }
 
+
     /**
      * <b>Contar Registros: </b> Retorna o número de linhas alteradas no banco!
      * @return INT $Var = Quantidade de linhas alteradas
